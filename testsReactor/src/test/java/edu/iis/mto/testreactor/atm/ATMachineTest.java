@@ -1,8 +1,7 @@
 package edu.iis.mto.testreactor.atm;
 
-import static org.hamcrest.MatcherAssert.assertThat;
+
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.when;
 
@@ -13,10 +12,7 @@ import edu.iis.mto.testreactor.atm.bank.Bank;
 import java.util.ArrayList;
 import java.util.Currency;
 import java.util.List;
-import java.util.Locale;
-import org.hamcrest.Matchers;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,6 +28,9 @@ public class ATMachineTest {
     public static final Currency POLISH_CURRENCY = Currency.getInstance("PLN");
     public static final PinCode PIN_CODE = PinCode.createPIN(1, 2, 3, 4);
     public static final int PROPER_VALUE_TO_WITHDRAW = 30;
+    public static final int VALUE_TO_WITHRAW = 30;
+    public static final Money EXPTECTED_MONEY_TO_WITHDRAW = new Money(VALUE_TO_WITHRAW, POLISH_CURRENCY);
+    public static final Card CARD = Card.create("12345");
 
     @BeforeEach
     public void setUp() throws Exception {}
@@ -53,14 +52,12 @@ public class ATMachineTest {
     @Test
     void successMoneyDepositWithExprectedBankontesAndExptectedMoneyToWithdraw()
         throws ATMOperationException, AuthorizationException {
-        PinCode pinCode = PinCode.createPIN(1,2,3,4);
-        int valueToWithraw = 30;
-        Money exptectedMoneyToWithdraw = new Money(valueToWithraw,POLISH_CURRENCY);
-        Card card = Card.create("12345");
-        AuthorizationToken authorizationToken= AuthorizationToken.create("123456");
-        when(bank.autorize(PIN_CODE.getPIN(),card.getNumber())).thenReturn(authorizationToken);
 
-        Withdrawal withdrawal = atMachine.withdraw(PinCode.createPIN(1,2,3,4),card,exptectedMoneyToWithdraw);
+        AuthorizationToken authorizationToken= AuthorizationToken.create("123456");
+        when(bank.autorize(PIN_CODE.getPIN(), CARD.getNumber())).thenReturn(authorizationToken);
+        Withdrawal withdrawal = atMachine.withdraw(PinCode.createPIN(1,2,3,4), CARD,
+            EXPTECTED_MONEY_TO_WITHDRAW);
+
 
         List<Banknote> expectedBanknotes = new ArrayList<Banknote>();
         expectedBanknotes.add(Banknote.PL_20);
@@ -69,45 +66,53 @@ public class ATMachineTest {
         assertTrue(expectedBanknotes.equals(withdrawal.getBanknotes()));
     }
 
-
     @Test
-    void autorizeExpcetiob() throws ATMOperationException, AuthorizationException {
-        Currency polishCurrency = Currency.getInstance(Locale.GERMANY);
-        List<BanknotesPack> banknotesPackList = new ArrayList<BanknotesPack>();
-        banknotesPackList.add(BanknotesPack.create(2,Banknote.PL_20));
-        banknotesPackList.add(BanknotesPack.create(2,Banknote.PL_10));
-        MoneyDeposit deposit = MoneyDeposit.create(polishCurrency,banknotesPackList);
-
-
-        PinCode pinCode = PinCode.createPIN(1,2,3,4);
-        Money money = new Money(5,polishCurrency);
-        Card card = Card.create("12345");
-
-
-
-        doThrow(new ATMOperationException(ErrorCode.AHTHORIZATION)).when(bank).autorize(pinCode.getPIN(),card.getNumber());
-
-//        Assertions.assertThrows(new ATMOperationException(ErrorCode.AHTHORIZATION), atMachine.withdraw(PinCode.createPIN(1,2,3,4),card,money));
-
-    }
-
-    @Test
-    void ifSuccesWithdrawMethodsShouldCallInProperOrder()
+    void ifSuccesWithdrawMethodsShouldCallBankMethodsInProperOrder()
         throws ATMOperationException, AuthorizationException, AccountException {
-        Money exptectedMoneyToWithdraw = new Money(PROPER_VALUE_TO_WITHDRAW, POLISH_CURRENCY);
-        Card card = Card.create("12345");
+        Money irrelevantMoney = new Money(PROPER_VALUE_TO_WITHDRAW, POLISH_CURRENCY);
         AuthorizationToken authorizationToken= AuthorizationToken.create("123456");
-        when(bank.autorize(PIN_CODE.getPIN(),card.getNumber())).thenReturn(authorizationToken);
+        when(bank.autorize(PIN_CODE.getPIN(),CARD.getNumber())).thenReturn(authorizationToken);
 
-        Withdrawal withdrawal = atMachine.withdraw(PinCode.createPIN(1,2,3,4),card,exptectedMoneyToWithdraw);
+        atMachine.withdraw(PinCode.createPIN(1,2,3,4),CARD,irrelevantMoney);
 
 
         InOrder inOrder = inOrder(bank);
-        inOrder.verify(bank).autorize(PIN_CODE.getPIN(),card.getNumber());
-        inOrder.verify(bank).charge(authorizationToken,exptectedMoneyToWithdraw);
+        inOrder.verify(bank).autorize(PIN_CODE.getPIN(),CARD.getNumber());
+        inOrder.verify(bank).charge(authorizationToken,irrelevantMoney);
         inOrder.verifyNoMoreInteractions();
 
     }
+
+//    @Test
+//    void autorizeExpcetiob() throws ATMOperationException, AuthorizationException {
+//        Currency polishCurrency = Currency.getInstance(Locale.GERMANY);
+//        List<BanknotesPack> banknotesPackList = new ArrayList<BanknotesPack>();
+//        MoneyDeposit deposit = MoneyDeposit.create(polishCurrency,banknotesPackList);
+//        AuthorizationToken authorizationToken= AuthorizationToken.create("123456");
+//        when(bank.autorize(PIN_CODE.getPIN(),card.getNumber())).thenReturn(authorizationToken);
+//
+//        PinCode pinCode = PinCode.createPIN(1,2,3,4);
+//        Money money = new Money(5,polishCurrency);
+//        Card card = Card.create("12345");
+//
+//        doThrow(new ATMOperationException(ErrorCode.AHTHORIZATION)).when(bank).autorize(pinCode.getPIN(),card.getNumber());
+//
+//        Assertions.assertThrows(new ATMOperationException(ErrorCode.AHTHORIZATION), atMachine.withdraw(PinCode.createPIN(1,2,3,4),card,money));
+//
+//    }
+
+//    @Test
+//    void autorizeExpcetiob() throws ATMOperationException, AuthorizationException {
+//        Currency polishCurrency = Currency.getInstance(Locale.GERMANY);
+//        List<BanknotesPack> banknotesPackList = new ArrayList<BanknotesPack>();
+//        MoneyDeposit deposit = MoneyDeposit.create(polishCurrency,banknotesPackList);
+//        Money money = new Money(5,polishCurrency);
+//        Card card = Card.create("12345");
+//
+//
+//       Assertions.assertThrows(ATMOperationException.class, () ->atMachine.withdraw(PinCode.createPIN(1,2,3,4),card,money));
+//
+//    }
 
 
 
